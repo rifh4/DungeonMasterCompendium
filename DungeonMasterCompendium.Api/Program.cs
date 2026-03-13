@@ -1,4 +1,8 @@
 
+using DungeonMasterCompendium.Api.Integrations.Open5e;
+using DungeonMasterCompendium.Api.Options;
+
+
 namespace DungeonMasterCompendium.Api
 {
     public class Program
@@ -8,6 +12,9 @@ namespace DungeonMasterCompendium.Api
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
+
+            builder.Services.Configure<Open5eOptions>(builder.Configuration.GetSection("Open5e"));
+            builder.Services.AddHttpClient<IOpen5eMonsterClient, Open5eMonsterClient>();
 
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
