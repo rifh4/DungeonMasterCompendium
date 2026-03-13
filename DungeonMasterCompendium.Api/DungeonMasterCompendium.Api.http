@@ -1,0 +1,6 @@
+@DungeonMasterCompendium.Api_HostAddress = http://localhost:5201
+
+GET {{DungeonMasterCompendium.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
