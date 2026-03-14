@@ -1,19 +1,33 @@
 ﻿using DungeonMasterCompendium.Api.Contracts.Monsters;
 using DungeonMasterCompendium.Api.Integrations.Open5e;
+using Microsoft.Extensions.Caching.Distributed;
+using System.Text.Json;
 
 namespace DungeonMasterCompendium.Api.Services
 {
     public sealed class MonstersService : IMonstersService
     {
         private readonly IOpen5eMonsterClient _open5eMonsterClient;
+        private readonly IDistributedCache _cache;
 
-        public MonstersService(IOpen5eMonsterClient open5EMonsterClient)
+        public MonstersService(IOpen5eMonsterClient open5EMonsterClient,IDistributedCache cache)
         {
             _open5eMonsterClient = open5EMonsterClient;
+            _cache = cache;
         }
 
         public async Task<MonsterListResponse> GetMonsters(string? name, int limit, CancellationToken cancellationToken)
         {
+            string normalizedName;
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                normalizedName = "all";
+            }
+            else
+            {
+                normalizedName = name.Trim().ToLowerInvariant();
+            }
+
             int resolvedLimit;
             if (limit < 1)
             {
@@ -28,6 +42,18 @@ namespace DungeonMasterCompendium.Api.Services
                 resolvedLimit = limit;
             }
 
+            string cacheKey = $"dmcomp:monsters:list:name:{normalizedName}:limit:{resolvedLimit}";
+            string? cachedJson = await _cache.GetStringAsync(cacheKey, cancellationToken);
+
+            if (cachedJson != null)
+            {
+                MonsterListResponse? cachedResponse = JsonSerializer.Deserialize<MonsterListResponse>(cachedJson);
+                if (cachedResponse != null)
+                {
+                    return cachedResponse;
+                }
+            }
+
             int prefetchLimit = resolvedLimit * 5;
             if (prefetchLimit < 50)
             {
@@ -38,7 +64,17 @@ namespace DungeonMasterCompendium.Api.Services
                 prefetchLimit = 100;
             }
 
-            Open5eMonsterListResponse raw = await _open5eMonsterClient.FetchMonsterList(name, prefetchLimit, cancellationToken);
+            string? upstreamName;
+            if (normalizedName == "all")
+            {
+                upstreamName = null;
+            }
+            else
+            {
+                upstreamName = normalizedName;
+            }
+
+            Open5eMonsterListResponse raw = await _open5eMonsterClient.FetchMonsterList(upstreamName, prefetchLimit, cancellationToken);
 
             MonsterListItemResponse Map(Open5eMonsterListItem item)
             {
@@ -53,60 +89,72 @@ namespace DungeonMasterCompendium.Api.Services
                 };
             }
 
-            if (string.IsNullOrWhiteSpace(name))
+            MonsterListResponse response;
+
+            if (normalizedName == "all")
             {
-                return new MonsterListResponse
+                response = new MonsterListResponse
                 {
                     Count = raw.Count,
                     Results = raw.Results.Take(resolvedLimit).Select(Map).ToList()
                 };
             }
-
-            string term = name.Trim();
-
-            int Score(Open5eMonsterListItem item)
+            else
             {
-                string slug = (item.Slug ?? string.Empty).Trim();
-                string monsterName = (item.Name ?? string.Empty).Trim();
-
-                if (slug.Equals(term, StringComparison.OrdinalIgnoreCase))
+                int Score(Open5eMonsterListItem item)
                 {
-                    return 0;
+                    string slug = (item.Slug ?? string.Empty).Trim();
+                    string monsterName = (item.Name ?? string.Empty).Trim();
+
+                    if (slug.Equals(normalizedName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return 0;
+                    }
+
+                    if (monsterName.Equals(normalizedName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return 1;
+                    }
+
+                    if (slug.Contains(normalizedName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return 2;
+                    }
+
+                    if (monsterName.Contains(normalizedName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return 3;
+                    }
+
+                    return 4;
                 }
 
-                if (monsterName.Equals(term, StringComparison.OrdinalIgnoreCase))
-                {
-                    return 1;
-                }
+                List<Open5eMonsterListItem> filtered = raw.Results
+                    .Select(item => new { Item = item, Rank = Score(item) })
+                    .Where(x => x.Rank < 4)
+                    .OrderBy(x => x.Rank)
+                    .ThenBy(x => x.Item.Name)
+                    .Select(x => x.Item)
+                    .ToList();
 
-                if (slug.Contains(term, StringComparison.OrdinalIgnoreCase))
-                {
-                    return 2;
-                }
+                List<Open5eMonsterListItem> limited = filtered.Take(resolvedLimit).ToList();
 
-                if (monsterName.Contains(term, StringComparison.OrdinalIgnoreCase))
+                response = new MonsterListResponse
                 {
-                    return 3;
-                }
-
-                return 4;
+                    Count = filtered.Count,
+                    Results = limited.Select(Map).ToList()
+                };
             }
 
-            List<Open5eMonsterListItem> filtered = raw.Results
-                .Select(item => new { Item = item, Rank = Score(item) })
-                .Where(x => x.Rank < 4)
-                .OrderBy(x => x.Rank)
-                .ThenBy(x => x.Item.Name)
-                .Select(x => x.Item)
-                .ToList();
-
-            List<Open5eMonsterListItem> limited = filtered.Take(resolvedLimit).ToList();
-
-            return new MonsterListResponse
+            string responseJson = JsonSerializer.Serialize(response);
+            DistributedCacheEntryOptions options = new DistributedCacheEntryOptions
             {
-                Count = filtered.Count,
-                Results = limited.Select(Map).ToList()
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
             };
+
+            await _cache.SetStringAsync(cacheKey, responseJson, options, cancellationToken);
+
+            return response;
         }
 
         public async Task<MonsterDetailResponse?> GetMonsterDetails(string externalId, CancellationToken cancellationToken)
@@ -116,7 +164,21 @@ namespace DungeonMasterCompendium.Api.Services
                 throw new ArgumentException("Empty API id");
             }
 
-            Open5eMonsterDetailItem? detail = await _open5eMonsterClient.FetchMonsterDetails(externalId, cancellationToken);
+
+            string normalizedExternalId = externalId.Trim().ToLowerInvariant();
+            string cacheKey = $"dmcomp:monsters:detail:{normalizedExternalId}";
+            string? cachedJson = await _cache.GetStringAsync(cacheKey, cancellationToken);
+            if (cachedJson != null)
+            {
+                MonsterDetailResponse? cachedMonster = JsonSerializer.Deserialize<MonsterDetailResponse>(cachedJson);
+                if (cachedMonster != null)
+                {
+                    return cachedMonster;
+                }
+            }
+
+
+            Open5eMonsterDetailItem? detail = await _open5eMonsterClient.FetchMonsterDetails(normalizedExternalId, cancellationToken);
             if (detail == null)
             {
                 return null;
@@ -141,6 +203,13 @@ namespace DungeonMasterCompendium.Api.Services
                 Charisma = detail.Charisma,
                 ChallengeRating = detail.ChallengeRating ?? string.Empty
             };
+
+            string mappedJson = JsonSerializer.Serialize(mapped);
+            DistributedCacheEntryOptions options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
+            };
+            await _cache.SetStringAsync(cacheKey, mappedJson, options, cancellationToken);
 
             return mapped;
         }

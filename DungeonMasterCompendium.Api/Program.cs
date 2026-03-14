@@ -18,6 +18,11 @@ namespace DungeonMasterCompendium.Api
             builder.Services.AddScoped<IMonstersService, MonstersService>();
             builder.Services.AddHttpClient<IOpen5eMonsterClient, Open5eMonsterClient>();
 
+            builder.Services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = builder.Configuration.GetConnectionString("Redis");
+            });
+
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
