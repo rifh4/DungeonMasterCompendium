@@ -1,15 +1,19 @@
 ﻿using DungeonMasterCompendium.Api.Contracts.Monsters;
 using DungeonMasterCompendium.Api.Integrations.Open5e;
+using Microsoft.Extensions.Caching.Distributed;
+using System.Text.Json;
 
 namespace DungeonMasterCompendium.Api.Services
 {
     public sealed class MonstersService : IMonstersService
     {
         private readonly IOpen5eMonsterClient _open5eMonsterClient;
+        private readonly IDistributedCache _cache;
 
-        public MonstersService(IOpen5eMonsterClient open5EMonsterClient)
+        public MonstersService(IOpen5eMonsterClient open5EMonsterClient, IDistributedCache cache)
         {
             _open5eMonsterClient = open5EMonsterClient;
+            _cache = cache;
         }
 
         public async Task<MonsterListResponse> GetMonsters(string? name, int limit, CancellationToken cancellationToken)
@@ -116,7 +120,21 @@ namespace DungeonMasterCompendium.Api.Services
                 throw new ArgumentException("Empty API id");
             }
 
-            Open5eMonsterDetailItem? detail = await _open5eMonsterClient.FetchMonsterDetails(externalId, cancellationToken);
+
+            string normalizedExternalId = externalId.Trim().ToLowerInvariant();
+            string cacheKey = $"dmcomp:monsters:detail:{normalizedExternalId}";
+            string? cachedJson = await _cache.GetStringAsync(cacheKey, cancellationToken);
+            if (cachedJson != null)
+            {
+                MonsterDetailResponse? cachedMonster = JsonSerializer.Deserialize<MonsterDetailResponse>(cachedJson);
+                if (cachedMonster != null)
+                {
+                    return cachedMonster;
+                }
+            }
+
+
+            Open5eMonsterDetailItem? detail = await _open5eMonsterClient.FetchMonsterDetails(normalizedExternalId, cancellationToken);
             if (detail == null)
             {
                 return null;
@@ -141,6 +159,13 @@ namespace DungeonMasterCompendium.Api.Services
                 Charisma = detail.Charisma,
                 ChallengeRating = detail.ChallengeRating ?? string.Empty
             };
+
+            string mappedJson = JsonSerializer.Serialize(mapped);
+            DistributedCacheEntryOptions options = new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
+            };
+            await _cache.SetStringAsync(cacheKey, mappedJson, options, cancellationToken);
 
             return mapped;
         }
