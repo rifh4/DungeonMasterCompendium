@@ -1,6 +1,7 @@
 
 using DungeonMasterCompendium.Api.Integrations.Open5e;
 using DungeonMasterCompendium.Api.Options;
+using DungeonMasterCompendium.Api.Services;
 
 
 namespace DungeonMasterCompendium.Api
@@ -14,6 +15,7 @@ namespace DungeonMasterCompendium.Api
             // Add services to the container.
 
             builder.Services.Configure<Open5eOptions>(builder.Configuration.GetSection("Open5e"));
+            builder.Services.AddScoped<IMonstersService, MonstersService>();
             builder.Services.AddHttpClient<IOpen5eMonsterClient, Open5eMonsterClient>();
 
             builder.Services.AddControllers();
