@@ -23,6 +23,16 @@ namespace DungeonMasterCompendium.Api.Services
                 throw new ArgumentException("Spell name is too long.");
             }
 
+            string normalizedName;
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                normalizedName = "all";
+            }
+            else
+            {
+                normalizedName = name.Trim().ToLowerInvariant();
+            }
+
             int resolvedLimit;
             if (limit < 1)
             {
@@ -37,16 +47,7 @@ namespace DungeonMasterCompendium.Api.Services
                 resolvedLimit = limit;
             }
 
-            string normalizedName;
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                normalizedName = "all";
-            }
-            else
-            {
-                normalizedName = name.Trim().ToLowerInvariant();
-            }
-
+            // Normalize cache inputs so equivalent requests reuse the same cached list entry.
             string cacheKey = $"dmcomp:spells:list:name:{normalizedName}:limit:{resolvedLimit}";
             string? cachedJson = await _cache.GetStringAsync(cacheKey, cancellationToken);
 
@@ -90,6 +91,8 @@ namespace DungeonMasterCompendium.Api.Services
             };
 
             string responseJson = JsonSerializer.Serialize(response);
+
+            // Keep compendium data warm enough for repeated lookups without holding stale upstream data for long.
             DistributedCacheEntryOptions options = new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
@@ -104,7 +107,7 @@ namespace DungeonMasterCompendium.Api.Services
         {
             if (string.IsNullOrWhiteSpace(externalId))
             {
-                throw new ArgumentException("Empty API id");
+                throw new ArgumentException("ExternalId is required.", nameof(externalId));
             }
 
             string normalizedExternalId = externalId.Trim().ToLowerInvariant();

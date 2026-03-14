@@ -40,7 +40,7 @@ namespace DungeonMasterCompendium.Api.Controllers
         [HttpGet("{externalId}")]
         public async Task<ActionResult<SpellDetailResponse>> GetSpellDetails(
             string externalId,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(externalId))
             {

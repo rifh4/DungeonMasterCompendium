@@ -40,7 +40,7 @@ namespace DungeonMasterCompendium.Api.Controllers
         [HttpGet("{externalId}")]
         public async Task<ActionResult<ItemDetailResponse>> GetItemDetails(
             string externalId,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(externalId))
             {

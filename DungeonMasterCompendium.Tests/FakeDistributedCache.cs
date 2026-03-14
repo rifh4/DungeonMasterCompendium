@@ -5,7 +5,7 @@ namespace DungeonMasterCompendium.Tests
 {
     public class FakeDistributedCache : IDistributedCache
     {
-        private readonly Dictionary<string, byte[]> _entries = new Dictionary<string, byte[]>();
+        private readonly Dictionary<string, byte[]> _entries = new();
 
         public int SetCallCount { get; set; }
         public string? LastSetKey { get; set; }

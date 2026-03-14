@@ -10,14 +10,19 @@ namespace DungeonMasterCompendium.Api.Services
         private readonly IOpen5eMonsterClient _open5eMonsterClient;
         private readonly IDistributedCache _cache;
 
-        public MonstersService(IOpen5eMonsterClient open5EMonsterClient,IDistributedCache cache)
+        public MonstersService(IOpen5eMonsterClient open5eMonsterClient, IDistributedCache cache)
         {
-            _open5eMonsterClient = open5EMonsterClient;
+            _open5eMonsterClient = open5eMonsterClient;
             _cache = cache;
         }
 
         public async Task<MonsterListResponse> GetMonsters(string? name, int limit, CancellationToken cancellationToken)
         {
+            if (!string.IsNullOrWhiteSpace(name) && name.Trim().Length > 50)
+            {
+                throw new ArgumentException("Monster name is too long.");
+            }
+
             string normalizedName;
             if (string.IsNullOrWhiteSpace(name))
             {
@@ -42,6 +47,7 @@ namespace DungeonMasterCompendium.Api.Services
                 resolvedLimit = limit;
             }
 
+            // Normalize cache inputs so equivalent requests reuse the same cached list entry.
             string cacheKey = $"dmcomp:monsters:list:name:{normalizedName}:limit:{resolvedLimit}";
             string? cachedJson = await _cache.GetStringAsync(cacheKey, cancellationToken);
 
@@ -74,7 +80,8 @@ namespace DungeonMasterCompendium.Api.Services
                 upstreamName = normalizedName;
             }
 
-            Open5eMonsterListResponse raw = await _open5eMonsterClient.FetchMonsterList(upstreamName, prefetchLimit, cancellationToken);
+            Open5eMonsterListResponse raw =
+                await _open5eMonsterClient.FetchMonsterList(upstreamName, prefetchLimit, cancellationToken);
 
             MonsterListItemResponse Map(Open5eMonsterListItem item)
             {
@@ -101,6 +108,8 @@ namespace DungeonMasterCompendium.Api.Services
             }
             else
             {
+                // Monster search is ranked locally so exact and close matches appear first,
+                // even when the upstream search returns a broader set of partial matches.
                 int Score(Open5eMonsterListItem item)
                 {
                     string slug = (item.Slug ?? string.Empty).Trim();
@@ -147,6 +156,8 @@ namespace DungeonMasterCompendium.Api.Services
             }
 
             string responseJson = JsonSerializer.Serialize(response);
+
+            // Keep compendium data warm enough for repeated lookups without holding stale upstream data for long.
             DistributedCacheEntryOptions options = new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
@@ -161,13 +172,13 @@ namespace DungeonMasterCompendium.Api.Services
         {
             if (string.IsNullOrWhiteSpace(externalId))
             {
-                throw new ArgumentException("Empty API id");
+                throw new ArgumentException("ExternalId is required.", nameof(externalId));
             }
-
 
             string normalizedExternalId = externalId.Trim().ToLowerInvariant();
             string cacheKey = $"dmcomp:monsters:detail:{normalizedExternalId}";
             string? cachedJson = await _cache.GetStringAsync(cacheKey, cancellationToken);
+
             if (cachedJson != null)
             {
                 MonsterDetailResponse? cachedMonster = JsonSerializer.Deserialize<MonsterDetailResponse>(cachedJson);
@@ -177,8 +188,9 @@ namespace DungeonMasterCompendium.Api.Services
                 }
             }
 
+            Open5eMonsterDetailItem? detail =
+                await _open5eMonsterClient.FetchMonsterDetails(normalizedExternalId, cancellationToken);
 
-            Open5eMonsterDetailItem? detail = await _open5eMonsterClient.FetchMonsterDetails(normalizedExternalId, cancellationToken);
             if (detail == null)
             {
                 return null;
@@ -209,10 +221,10 @@ namespace DungeonMasterCompendium.Api.Services
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
             };
+
             await _cache.SetStringAsync(cacheKey, mappedJson, options, cancellationToken);
 
             return mapped;
         }
-
     }
 }

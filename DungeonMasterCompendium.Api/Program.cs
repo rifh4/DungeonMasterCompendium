@@ -4,18 +4,17 @@ using DungeonMasterCompendium.Api.Integrations.Open5e.Spells;
 using DungeonMasterCompendium.Api.Options;
 using DungeonMasterCompendium.Api.Services;
 
-
 namespace DungeonMasterCompendium.Api
 {
     public class Program
     {
         public static void Main(string[] args)
         {
-            var builder = WebApplication.CreateBuilder(args);
+            WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
-
-            builder.Services.Configure<Open5eOptions>(builder.Configuration.GetSection("Open5e"));
+            builder.Services.Configure<Open5eOptions>(
+                builder.Configuration.GetSection(Open5eOptions.SectionName));
 
             builder.Services.AddScoped<IMonstersService, MonstersService>();
             builder.Services.AddHttpClient<IOpen5eMonsterClient, Open5eMonsterClient>();
@@ -35,7 +34,7 @@ namespace DungeonMasterCompendium.Api
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
-            var app = builder.Build();
+            WebApplication app = builder.Build();
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
@@ -45,7 +44,6 @@ namespace DungeonMasterCompendium.Api
             }
 
             app.UseAuthorization();
-
 
             app.MapControllers();
 

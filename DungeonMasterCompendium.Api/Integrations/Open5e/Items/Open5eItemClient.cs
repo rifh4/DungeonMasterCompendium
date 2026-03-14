@@ -7,21 +7,29 @@ namespace DungeonMasterCompendium.Api.Integrations.Open5e.Items
     public sealed class Open5eItemClient : IOpen5eItemClient
     {
         private readonly HttpClient _http;
-        private readonly Open5eOptions _options;
+        private readonly string _baseUrl;
 
         public Open5eItemClient(HttpClient http, IOptions<Open5eOptions> options)
         {
             _http = http;
-            _options = options.Value;
+
+            string? baseUrl = options.Value.BaseUrl;
+            if (string.IsNullOrWhiteSpace(baseUrl))
+            {
+                throw new InvalidOperationException("Open5e BaseUrl is not configured.");
+            }
+
+            _baseUrl = baseUrl.TrimEnd('/');
         }
 
         public async Task<Open5eItemListResponse> FetchItemList(string? name, int limit, CancellationToken cancellationToken)
         {
-            string url = $"{_options.BaseUrl.TrimEnd('/')}/v1/magicitems/?limit={limit}";
+            string url = $"{_baseUrl}/v1/magicitems/?limit={limit}";
 
             if (!string.IsNullOrWhiteSpace(name))
             {
-                url += $"&search={Uri.EscapeDataString(name)}";
+                string trimmedName = name.Trim();
+                url += $"&search={Uri.EscapeDataString(trimmedName)}";
             }
 
             Open5eItemListResponse? response =
@@ -32,10 +40,17 @@ namespace DungeonMasterCompendium.Api.Integrations.Open5e.Items
 
         public async Task<Open5eItemDetailItem?> FetchItemDetails(string externalId, CancellationToken cancellationToken)
         {
-            string url = $"{_options.BaseUrl.TrimEnd('/')}/v1/magicitems/{externalId}/";
+            if (string.IsNullOrWhiteSpace(externalId))
+            {
+                throw new ArgumentException("ExternalId is required.", nameof(externalId));
+            }
+
+            string url = $"{_baseUrl}/v1/magicitems/{externalId.Trim()}/";
 
             HttpResponseMessage response = await _http.GetAsync(url, cancellationToken);
 
+            // A missing upstream item is treated as "not found" in my service layer
+            // instead of as an exceptional integration failure.
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 return null;
