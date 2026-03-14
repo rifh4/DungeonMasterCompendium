@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 using System.Net;
 
-namespace DungeonMasterCompendium.Api.Integrations.Open5e
+namespace DungeonMasterCompendium.Api.Integrations.Open5e.Monsters
 {
     public sealed class Open5eMonsterClient : IOpen5eMonsterClient
     {

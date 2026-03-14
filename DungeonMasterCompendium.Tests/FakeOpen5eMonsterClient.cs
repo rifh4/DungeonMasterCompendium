@@ -1,4 +1,4 @@
-﻿using DungeonMasterCompendium.Api.Integrations.Open5e;
+﻿using DungeonMasterCompendium.Api.Integrations.Open5e.Monsters;
 
 namespace DungeonMasterCompendium.Tests
 {

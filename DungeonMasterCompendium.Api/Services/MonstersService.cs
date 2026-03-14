@@ -1,5 +1,5 @@
 ﻿using DungeonMasterCompendium.Api.Contracts.Monsters;
-using DungeonMasterCompendium.Api.Integrations.Open5e;
+using DungeonMasterCompendium.Api.Integrations.Open5e.Monsters;
 using Microsoft.Extensions.Caching.Distributed;
 using System.Text.Json;
 

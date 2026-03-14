@@ -1,4 +1,4 @@
-﻿namespace DungeonMasterCompendium.Api.Integrations.Open5e
+﻿namespace DungeonMasterCompendium.Api.Integrations.Open5e.Monsters
 {
     public interface IOpen5eMonsterClient
     {

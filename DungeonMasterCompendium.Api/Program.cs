@@ -1,5 +1,5 @@
-
-using DungeonMasterCompendium.Api.Integrations.Open5e;
+using DungeonMasterCompendium.Api.Integrations.Open5e.Monsters;
+using DungeonMasterCompendium.Api.Integrations.Open5e.Spells;
 using DungeonMasterCompendium.Api.Options;
 using DungeonMasterCompendium.Api.Services;
 
@@ -15,8 +15,12 @@ namespace DungeonMasterCompendium.Api
             // Add services to the container.
 
             builder.Services.Configure<Open5eOptions>(builder.Configuration.GetSection("Open5e"));
+
             builder.Services.AddScoped<IMonstersService, MonstersService>();
             builder.Services.AddHttpClient<IOpen5eMonsterClient, Open5eMonsterClient>();
+
+            builder.Services.AddScoped<ISpellsService, SpellsService>();
+            builder.Services.AddHttpClient<IOpen5eSpellClient, Open5eSpellClient>();
 
             builder.Services.AddStackExchangeRedisCache(options =>
             {
