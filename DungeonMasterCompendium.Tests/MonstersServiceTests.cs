@@ -1,8 +1,6 @@
 ﻿using DungeonMasterCompendium.Api.Contracts.Monsters;
-using DungeonMasterCompendium.Api.Integrations.Open5e;
 using DungeonMasterCompendium.Api.Integrations.Open5e.Monsters;
 using DungeonMasterCompendium.Api.Services;
-using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
 
 namespace DungeonMasterCompendium.Tests

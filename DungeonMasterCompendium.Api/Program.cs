@@ -1,3 +1,4 @@
+using DungeonMasterCompendium.Api.Integrations.Open5e.Items;
 using DungeonMasterCompendium.Api.Integrations.Open5e.Monsters;
 using DungeonMasterCompendium.Api.Integrations.Open5e.Spells;
 using DungeonMasterCompendium.Api.Options;
@@ -21,6 +22,9 @@ namespace DungeonMasterCompendium.Api
 
             builder.Services.AddScoped<ISpellsService, SpellsService>();
             builder.Services.AddHttpClient<IOpen5eSpellClient, Open5eSpellClient>();
+
+            builder.Services.AddScoped<IItemsService, ItemsService>();
+            builder.Services.AddHttpClient<IOpen5eItemClient, Open5eItemClient>();
 
             builder.Services.AddStackExchangeRedisCache(options =>
             {
