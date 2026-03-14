@@ -22,23 +22,16 @@ The API wraps the **Open5e API** and exposes normalized internal contracts for:
 
 ## Screenshots
 
-### Swagger UI overview
+## Screenshots
 
-<p align="center">
-<img src="docs/screenshots/swagger-overview.png" alt="Swagger UI overview" width="300" />
-</p>
+### Swagger UI overview
+<img src="./docs/screenshots/swagger-overview.png" alt="Swagger UI overview" width="300">
 
 ### Monster detail example
-
-<p align="center">
-<img src="docs/screenshots/swagger-monster-detail.png" alt="GET /compendium/monsters/{externalId} response example" width="300" />
-</p>
+<img src="./docs/screenshots/swagger-monster-detail.jpg" alt="GET /compendium/monsters/{externalId} response example" width="300">
 
 ### Redis cache keys
-
-<p align="center">
-<img src="docs/screenshots/redis-cache-keys.png" alt="Redis cache entries created by the API" width="300" />
-</p>
+<img src="./docs/screenshots/redis-cache-keys.png" alt="Redis cache entries created by the API" width="300">
 
 ---
 
