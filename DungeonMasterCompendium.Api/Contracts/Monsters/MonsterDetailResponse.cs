@@ -10,7 +10,7 @@
         public int ArmorClass {  get; set; } 
         public int HitPoints { get; set; }
         public string HitDice {  get; set; } = string.Empty;
-        public string Speed {  get; set; } = string.Empty;
+        public Dictionary<string, int> Speed { get; set; } = new();
         public int Strength {  get; set; }
         public int Dexterity { get; set; } 
         public int Constitution { get; set; } 

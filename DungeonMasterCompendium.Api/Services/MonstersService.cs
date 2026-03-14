@@ -1,4 +1,5 @@
-﻿using DungeonMasterCompendium.Api.Integrations.Open5e;
+﻿using DungeonMasterCompendium.Api.Contracts.Monsters;
+using DungeonMasterCompendium.Api.Integrations.Open5e;
 
 namespace DungeonMasterCompendium.Api.Services
 {
@@ -11,7 +12,7 @@ namespace DungeonMasterCompendium.Api.Services
             _open5eMonsterClient = open5EMonsterClient;
         }
 
-        public async Task<Open5eMonsterListResponse> GetMonsters(string? name, int limit, CancellationToken cancellationToken)
+        public async Task<MonsterListResponse> GetMonsters(string? name, int limit, CancellationToken cancellationToken)
         {
             int resolvedLimit;
             if (limit < 1)
@@ -39,14 +40,25 @@ namespace DungeonMasterCompendium.Api.Services
 
             Open5eMonsterListResponse raw = await _open5eMonsterClient.FetchMonsterList(name, prefetchLimit, cancellationToken);
 
+            MonsterListItemResponse Map(Open5eMonsterListItem item)
+            {
+                return new MonsterListItemResponse
+                {
+                    ExternalId = item.Slug ?? string.Empty,
+                    Name = item.Name ?? string.Empty,
+                    Size = item.Size ?? string.Empty,
+                    Type = item.Type ?? string.Empty,
+                    Alignment = item.Alignment ?? string.Empty,
+                    ChallengeRating = item.ChallengeRating ?? string.Empty
+                };
+            }
+
             if (string.IsNullOrWhiteSpace(name))
             {
-                return new Open5eMonsterListResponse
+                return new MonsterListResponse
                 {
                     Count = raw.Count,
-                    Next = null,
-                    Previous = null,
-                    Results = raw.Results.Take(resolvedLimit).ToList()
+                    Results = raw.Results.Take(resolvedLimit).Select(Map).ToList()
                 };
             }
 
@@ -90,13 +102,47 @@ namespace DungeonMasterCompendium.Api.Services
 
             List<Open5eMonsterListItem> limited = filtered.Take(resolvedLimit).ToList();
 
-            return new Open5eMonsterListResponse
+            return new MonsterListResponse
             {
                 Count = filtered.Count,
-                Next = null,
-                Previous = null,
-                Results = limited
+                Results = limited.Select(Map).ToList()
             };
+        }
+
+        public async Task<MonsterDetailResponse?> GetMonsterDetails(string externalId, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(externalId))
+            {
+                throw new ArgumentException("Empty API id");
+            }
+
+            Open5eMonsterDetailItem? detail = await _open5eMonsterClient.FetchMonsterDetails(externalId, cancellationToken);
+            if (detail == null)
+            {
+                return null;
+            }
+
+            MonsterDetailResponse mapped = new MonsterDetailResponse
+            {
+                ExternalId = detail.Slug ?? string.Empty,
+                Name = detail.Name ?? string.Empty,
+                Size = detail.Size ?? string.Empty,
+                Type = detail.Type ?? string.Empty,
+                Alignment = detail.Alignment ?? string.Empty,
+                ArmorClass = detail.ArmorClass,
+                HitPoints = detail.HitPoints,
+                HitDice = detail.HitDice ?? string.Empty,
+                Speed = detail.Speed,
+                Strength = detail.Strength,
+                Dexterity = detail.Dexterity,
+                Constitution = detail.Constitution,
+                Intelligence = detail.Intelligence,
+                Wisdom = detail.Wisdom,
+                Charisma = detail.Charisma,
+                ChallengeRating = detail.ChallengeRating ?? string.Empty
+            };
+
+            return mapped;
         }
 
     }

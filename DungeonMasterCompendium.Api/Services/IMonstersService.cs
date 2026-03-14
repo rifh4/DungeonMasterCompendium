@@ -1,9 +1,10 @@
-﻿using DungeonMasterCompendium.Api.Integrations.Open5e;
+﻿using DungeonMasterCompendium.Api.Contracts.Monsters;
 
 namespace DungeonMasterCompendium.Api.Services
 {
     public interface IMonstersService
     {
-        public Task<Open5eMonsterListResponse> GetMonsters(string? name, int limit, CancellationToken cancellationToken);
+        public Task<MonsterListResponse> GetMonsters(string? name, int limit, CancellationToken cancellationToken);
+        Task<MonsterDetailResponse?> GetMonsterDetails(string externalId, CancellationToken cancellationToken);
     }
 }
