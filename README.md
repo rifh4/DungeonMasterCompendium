@@ -120,7 +120,7 @@ These return **400 Bad Request**.
 
 ## Redis Caching
 
-This API uses a **cache-aside strategy** with Redis.
+This API is using **cache-aside strategy** with Redis.
 
 Flow:
 
