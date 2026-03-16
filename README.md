@@ -275,17 +275,4 @@ Dungeon Master Compendium was built as a focused backend project to demonstrate 
 - clean layered architecture
 - automated testing
 
-The goal was to implement a realistic API wrapper that demonstrates production-style patterns without unnecessary complexity.
 
----
-
-## Project Status
-
-Feature-complete for the intended scope.
-
-Possible future extensions could include:
-
-- additional compendium resources
-- persistent caching
-- authentication
-- cloud deployment
