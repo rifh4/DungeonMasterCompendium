@@ -21,8 +21,7 @@ namespace DungeonMasterCompendium.Api.Controllers
             [FromQuery] int limit = 20,
             CancellationToken cancellationToken = default)
         {
-            // Keep query validation consistent across compendium endpoints so the API fails fast
-            // before reaching service or integration layers.
+
             if (limit < 1 || limit > 100)
             {
                 return BadRequest("Limit must be between 1 and 100.");

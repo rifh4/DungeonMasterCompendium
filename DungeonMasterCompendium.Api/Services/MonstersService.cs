@@ -47,7 +47,6 @@ namespace DungeonMasterCompendium.Api.Services
                 resolvedLimit = limit;
             }
 
-            // Normalize cache inputs so equivalent requests reuse the same cached list entry.
             string cacheKey = $"dmcomp:monsters:list:name:{normalizedName}:limit:{resolvedLimit}";
             string? cachedJson = await _cache.GetStringAsync(cacheKey, cancellationToken);
 
@@ -108,8 +107,7 @@ namespace DungeonMasterCompendium.Api.Services
             }
             else
             {
-                // Monster search is ranked locally so exact and close matches appear first,
-                // even when the upstream search returns a broader set of partial matches.
+                // Rank local matches so exact and close results show up first.
                 int Score(Open5eMonsterListItem item)
                 {
                     string slug = (item.Slug ?? string.Empty).Trim();
@@ -157,7 +155,7 @@ namespace DungeonMasterCompendium.Api.Services
 
             string responseJson = JsonSerializer.Serialize(response);
 
-            // Keep compendium data warm enough for repeated lookups without holding stale upstream data for long.
+            // Cache list results for 10 minutes.
             DistributedCacheEntryOptions options = new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)

@@ -12,7 +12,6 @@ namespace DungeonMasterCompendium.Api
         {
             WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
             builder.Services.Configure<Open5eOptions>(
                 builder.Configuration.GetSection(Open5eOptions.SectionName));
 
@@ -36,7 +35,6 @@ namespace DungeonMasterCompendium.Api
 
             WebApplication app = builder.Build();
 
-            // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
