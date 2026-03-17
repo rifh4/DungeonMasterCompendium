@@ -47,7 +47,6 @@ namespace DungeonMasterCompendium.Api.Services
                 resolvedLimit = limit;
             }
 
-            // Normalize cache inputs so equivalent requests reuse the same cached list entry.
             string cacheKey = $"dmcomp:spells:list:name:{normalizedName}:limit:{resolvedLimit}";
             string? cachedJson = await _cache.GetStringAsync(cacheKey, cancellationToken);
 
@@ -92,7 +91,7 @@ namespace DungeonMasterCompendium.Api.Services
 
             string responseJson = JsonSerializer.Serialize(response);
 
-            // Keep compendium data warm enough for repeated lookups without holding stale upstream data for long.
+            // Cache list results for 10 minutes.
             DistributedCacheEntryOptions options = new DistributedCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)

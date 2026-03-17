@@ -86,8 +86,7 @@ namespace DungeonMasterCompendium.Api.Integrations.Open5e.Monsters
 
             HttpResponseMessage response = await _http.GetAsync(requestUrl, cancellationToken);
 
-            // A missing upstream monster is treated as "not found" in my service layer
-            // instead of as an exceptional integration failure.
+            // Treat an upstream 404 as "not found", not as an integration error.
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 return null;

@@ -49,8 +49,7 @@ namespace DungeonMasterCompendium.Api.Integrations.Open5e.Spells
 
             HttpResponseMessage response = await _http.GetAsync(url, cancellationToken);
 
-            // A missing upstream spell is treated as "not found" in my service layer
-            // instead of as an exceptional integration failure.
+            // Treat an upstream 404 as "not found", not as an integration error.
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 return null;
