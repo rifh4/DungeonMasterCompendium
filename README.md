@@ -1,27 +1,18 @@
 # Dungeon Master Compendium
 
-Dungeon Master Compendium is a backend-first compendium API built with ASP.NET Core.
+Dungeon Master Compendium is an ASP.NET Core API that wraps the Open5e API and exposes normalized contracts for monsters, spells, and items.
 
-It is a portfolio project focused on demonstrating:
+I built this project to practice working with an external API and Redis caching without turning it into a much bigger app.
 
-- clean API design
-- layered backend architecture
-- external API integration
-- Redis caching
-- deterministic cache keys
-- automated tests
-- structured JSON endpoints for D&D compendium data
+The goal was to keep the scope focused: fetch compendium data from Open5e, validate requests, normalize the responses, and cache repeated lookups in Redis.
 
-The API wraps the **Open5e API** and exposes normalized internal contracts for:
+Open5e is an open-source 5e rules/content resource that provides API access to monsters, spells, items, and other SRD/OGL data, and this project wraps a small part of that API behind its own contracts and caching layer.
 
-- Monsters
-- Spells
-- Items
+Official API docs: [Open5e API docs](https://open5e.com/api-docs)
 
 ---
 
 ## Screenshots
-
 
 ### Swagger UI overview
 <img src="./docs/screenshots/swagger-overview.png" alt="Swagger UI overview" width="300">
@@ -34,28 +25,35 @@ The API wraps the **Open5e API** and exposes normalized internal contracts for:
 
 ---
 
-## What the API Does
+## What the API Covers
 
-Dungeon Master Compendium acts as a **clean backend wrapper over the Open5e API**.
+This API acts as a backend wrapper over Open5e.
 
-Instead of exposing raw Open5e responses, the API:
+Instead of returning raw Open5e responses directly, it:
 
 - normalizes external responses
-- exposes internally-owned response contracts
-- adds validation and consistent error handling
-- caches responses in Redis
+- exposes internal response contracts
+- validates query and route input
+- returns consistent HTTP errors
+- caches repeated requests in Redis
 
-Each compendium resource supports:
+The API currently covers three resource types:
+
+- Monsters
+- Spells
+- Items
+
+Each resource supports:
 
 - list queries
-- name filtering
+- optional name filtering
 - detail lookup by `externalId`
 
 ---
 
-## Example Demo Flow
+## Suggested Demo Flow
 
-A reviewer can test the project with the following flow:
+A users can try the project with this flow:
 
 1. `GET /compendium/monsters?limit=10`
 2. `GET /compendium/monsters?name=kobold&limit=10`
@@ -65,7 +63,7 @@ A reviewer can test the project with the following flow:
 6. `GET /compendium/items?limit=10`
 7. `GET /compendium/items/bag-of-holding`
 
-Repeating the same request twice demonstrates **Redis cache reuse**.
+Repeating the same request twice is an easy way to show Redis cache reuse.
 
 ---
 
@@ -107,7 +105,7 @@ Detail endpoints enforce:
 - `externalId` must not be empty after normalization
 - unknown `externalId` returns **404 Not Found**
 
-Example invalid requests:
+Examples of invalid requests:
 
 `GET /compendium/monsters?limit=0`  
 `GET /compendium/spells?limit=101`  
@@ -119,17 +117,15 @@ These return **400 Bad Request**.
 
 ## Redis Caching
 
-This API is using **cache-aside strategy** with Redis.
-
-Flow:
+This project uses a cache-aside approach with Redis.
 
 Request  
 → check Redis cache  
 → cache miss → call Open5e  
 → store result in Redis  
-→ return response  
+→ return response
 
-All cached entries use:
+Cached entries use:
 
 `AbsoluteExpirationRelativeToNow = 10 minutes`
 
@@ -137,7 +133,7 @@ All cached entries use:
 
 ## Cache Key Examples
 
-Cache keys are deterministic so equivalent normalized requests reuse the same entry.
+Cache keys are deterministic, so equivalent normalized requests reuse the same entry.
 
 Examples:
 
@@ -158,17 +154,15 @@ Inspect Redis keys with:
 
 ## Tech Stack
 
-- **C# / .NET 8**
-- **ASP.NET Core Web API**
-- **Redis**
-- **Open5e API**
-- **xUnit**
+- C# / .NET 8
+- ASP.NET Core Web API
+- Redis
+- Open5e API
+- xUnit
 
 ---
 
-## Architecture
-
-The solution is structured around a layered architecture.
+## Solution Structure
 
 ### Controllers
 
@@ -176,7 +170,7 @@ Responsibilities:
 
 - HTTP endpoints
 - request validation
-- mapping HTTP responses
+- HTTP response mapping
 
 ### Services
 
@@ -200,7 +194,7 @@ Responsibilities:
 Responsibilities:
 
 - internal response models
-- preventing external schema leakage
+- keeping Open5e schemas from leaking into the API surface
 
 ---
 
@@ -208,30 +202,36 @@ Responsibilities:
 
 ### 1. Restore and build
 
-dotnet restore  
-dotnet build  
+```bash
+dotnet restore
+dotnet build
+```
 
 ### 2. Start Redis
 
+```bash
 docker run -d --name redis -p 6379:6379 redis
+```
 
 ### 3. Run the API
 
+```bash
 dotnet run --project .\DungeonMasterCompendium.Api\DungeonMasterCompendium.Api.csproj
+```
 
 ### 4. Open Swagger
 
-http://localhost:5201/swagger
+`http://localhost:5201/swagger`
 
 ---
 
 ## Running Tests
 
+```bash
 dotnet test
+```
 
-The test suite covers core service-layer behavior using fake dependencies.
-
-Covered scenarios include:
+The test suite covers service-layer behavior such as:
 
 - successful list queries
 - successful detail queries
@@ -241,9 +241,9 @@ Covered scenarios include:
 
 ---
 
-## Project Scope / Limitations
+## Scope
 
-This project is intentionally scoped as a backend portfolio project.
+This project is intentionally smaller in scope than Void Ledger.
 
 ### Included
 
@@ -253,7 +253,7 @@ This project is intentionally scoped as a backend portfolio project.
 - validation behavior
 - service-layer tests
 
-### Deferred / intentionally not included
+### Not included
 
 - authentication / authorization
 - database persistence
@@ -263,15 +263,10 @@ This project is intentionally scoped as a backend portfolio project.
 
 ---
 
-## Why This Project Exists
+## What I'd Improve Next
 
-Dungeon Master Compendium was built as a focused backend project to demonstrate practical skills in:
+If I kept expanding this project, the next things I would look at are:
 
-- C#
-- ASP.NET Core
-- external API integration
-- Redis caching
-- clean layered architecture
-- automated testing
-
-
+- adding logging around cache hits, misses, and upstream failures
+- handling upstream rate limits more explicitly
+- adding deployment/runtime setup if I wanted to host it publicly
