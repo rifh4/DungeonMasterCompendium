@@ -22,7 +22,6 @@ The API wraps the **Open5e API** and exposes normalized internal contracts for:
 
 ## Screenshots
 
-## Screenshots
 
 ### Swagger UI overview
 <img src="./docs/screenshots/swagger-overview.png" alt="Swagger UI overview" width="300">
