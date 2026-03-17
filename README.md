@@ -1,16 +1,14 @@
-# Dungeon Master Compendium
+# Dungeon Master Compendium API Wrapper
 
-Dungeon Master Compendium is an ASP.NET Core API that wraps the Open5e API and exposes normalized contracts for monsters, spells, and items.
+I built this backend project to practice designing a middle-tier API with Redis caching.
 
-I built this project to practice working with an external API and Redis caching without turning it into a much bigger app.
+Instead of having a client application call a third-party source directly, this API sits in the middle, wraps the public Open5e API, and returns normalized data through its own internal response contracts.
 
-The goal was to keep the scope focused: fetch compendium data from the Open5e API, validate requests, normalize the responses, and cache repeated lookups in Redis.
+Open5e is an open-source 5e rules/content resource that exposes API access to monsters, spells, items, and other SRD/OGL data. This project only wraps a small part of that API.
 
-Open5e is an open-source 5e rules/content resource that provides API access to monsters, spells, items, and other SRD/OGL data, and this project wraps a small part of that API behind its own contracts and caching layer.
-
-Official API docs: [Open5e API docs](https://open5e.com/api-docs)
-
----
+Official Open5e links:
+- [Open5e main site](https://open5e.com/)
+- [Open5e API docs](https://open5e.com/api-docs)
 
 ## Screenshots
 
@@ -27,17 +25,7 @@ Official API docs: [Open5e API docs](https://open5e.com/api-docs)
 
 ## What the API Covers
 
-This API acts as a backend wrapper over Open5e.
-
-Instead of returning raw Open5e responses directly, it:
-
-- normalizes external responses
-- exposes internal response contracts
-- validates query and route input
-- returns consistent HTTP errors
-- caches repeated requests in Redis
-
-The API currently covers three resource types:
+The API exposes normalized data for:
 
 - Monsters
 - Spells
@@ -49,21 +37,55 @@ Each resource supports:
 - optional name filtering
 - detail lookup by `externalId`
 
+You can view the Swagger interface locally at:
+
+`http://localhost:5201/swagger`
+
+after starting the project.
+
 ---
 
-## Suggested Demo Flow
+## Why Build a Wrapper?
 
-A users can try the project with this flow:
+When working with external APIs, the response schema can change or include more data than I actually want to expose to a client.
 
-1. `GET /compendium/monsters?limit=10`
-2. `GET /compendium/monsters?name=kobold&limit=10`
-3. `GET /compendium/monsters/bandit`
-4. `GET /compendium/spells?limit=10`
-5. `GET /compendium/spells/fireball`
-6. `GET /compendium/items?limit=10`
-7. `GET /compendium/items/bag-of-holding`
+I built this layer to keep control over the public data shape.
 
-Repeating the same request twice is an easy way to show Redis cache reuse.
+Before returning data, the API does three things:
+
+1. validates incoming request parameters
+2. fetches raw data from Open5e through typed HTTP clients
+3. maps the external DTOs into internal response models
+
+That way, if the upstream schema changes, the mapping layer is the main place that needs to be updated.
+
+---
+
+## Caching Strategy
+
+The most important part of this project is the Redis cache.
+
+Calling an external provider repeatedly is slower than serving a cached response, and it also makes the API depend more heavily on the upstream service for repeated lookups. To reduce that, I used a cache-aside pattern.
+
+When a request comes in, the service layer builds a deterministic cache key first.
+
+For example, this request:
+
+`GET /compendium/monsters?name=kobold&limit=10`
+
+produces this cache key:
+
+`dmcomp:monsters:list:name:kobold:limit:10`
+
+The flow is:
+
+- check Redis for the key
+- on a cache miss, call Open5e
+- map the response into internal contracts
+- store the result in Redis
+- return the response
+
+Cached entries use a 10-minute absolute expiration.
 
 ---
 
@@ -74,19 +96,16 @@ Base route:
 `/compendium`
 
 ### Monsters
-
 - `GET /compendium/monsters?limit=10`
 - `GET /compendium/monsters?name=kobold&limit=10`
 - `GET /compendium/monsters/{externalId}`
 
 ### Spells
-
 - `GET /compendium/spells?limit=10`
 - `GET /compendium/spells?name=magic&limit=10`
 - `GET /compendium/spells/{externalId}`
 
 ### Items
-
 - `GET /compendium/items?limit=10`
 - `GET /compendium/items?name=sword&limit=10`
 - `GET /compendium/items/{externalId}`
@@ -107,48 +126,11 @@ Detail endpoints enforce:
 
 Examples of invalid requests:
 
-`GET /compendium/monsters?limit=0`  
-`GET /compendium/spells?limit=101`  
-`GET /compendium/items?name=<51 characters>`
+- `GET /compendium/monsters?limit=0`
+- `GET /compendium/spells?limit=101`
+- `GET /compendium/items?name=<51 characters>`
 
 These return **400 Bad Request**.
-
----
-
-## Redis Caching
-
-This project uses a cache-aside approach with Redis.
-
-Request  
-→ check Redis cache  
-→ cache miss → call Open5e  
-→ store result in Redis  
-→ return response
-
-Cached entries use:
-
-`AbsoluteExpirationRelativeToNow = 10 minutes`
-
----
-
-## Cache Key Examples
-
-Cache keys are deterministic, so equivalent normalized requests reuse the same entry.
-
-Examples:
-
-`dmcomp:monsters:list:name:kobold:limit:10`  
-`dmcomp:monsters:detail:bandit`  
-
-`dmcomp:spells:list:name:magic:limit:10`  
-`dmcomp:spells:detail:fireball`  
-
-`dmcomp:items:list:name:sword:limit:10`  
-`dmcomp:items:detail:bag-of-holding`
-
-Inspect Redis keys with:
-
-`docker exec -it redis redis-cli KEYS "dmcomp:*"`
 
 ---
 
@@ -162,55 +144,52 @@ Inspect Redis keys with:
 
 ---
 
-## Solution Structure
+## How the Code is Organized
 
 ### Controllers
-
 Responsibilities:
 
 - HTTP endpoints
 - request validation
-- HTTP response mapping
+- response mapping
 
 ### Services
-
 Responsibilities:
 
 - orchestration logic
 - cache interaction
 - calling Open5e clients
-- mapping external DTOs to internal contracts
+- mapping external DTOs into internal contracts
 
 ### Integrations
-
 Responsibilities:
 
 - typed HTTP clients for Open5e
-- external API DTOs
-- Open5e communication
+- external DTOs
+- upstream API communication
 
 ### Contracts
-
 Responsibilities:
 
 - internal response models
-- keeping Open5e schemas from leaking into the API surface
+- keeping the public API separate from the external schema
 
 ---
 
 ## Running Locally
 
-### 1. Restore and build
+You will need the .NET 8 SDK and Docker Desktop installed.
 
-```bash
-dotnet restore
-dotnet build
-```
-
-### 2. Start Redis
+### 1. Start Redis
 
 ```bash
 docker run -d --name redis -p 6379:6379 redis
+```
+
+### 2. Restore packages
+
+```bash
+dotnet restore
 ```
 
 ### 3. Run the API
@@ -221,39 +200,39 @@ dotnet run --project .\DungeonMasterCompendium.Api\DungeonMasterCompendium.Api.c
 
 ### 4. Open Swagger
 
+Open:
+
 `http://localhost:5201/swagger`
 
 ---
 
-## Running Tests
+## Testing
+
+Run the tests with:
 
 ```bash
 dotnet test
 ```
 
-The test suite covers service-layer behavior such as:
+I wrote unit tests around the core service logic.
 
-- successful list queries
-- successful detail queries
-- validation failures
-- Redis cache interaction
-- Open5e integration mapping
+Because the services depend on external HTTP calls and a distributed cache, I used fake implementations of the Open5e clients and `IDistributedCache` so the cache-hit and cache-miss paths can be tested without relying on a live upstream service or a running Redis container.
 
 ---
 
 ## Scope
 
-This project is intentionally smaller in scope than Void Ledger.
+This project is intentionally smaller than my main SQL-backed backend project.
 
-### Included
+Included here:
 
 - Open5e integration
-- internal API contracts
+- internal response contracts
 - Redis caching
 - validation behavior
 - service-layer tests
 
-### Not included
+Not included:
 
 - authentication / authorization
 - database persistence
@@ -263,10 +242,10 @@ This project is intentionally smaller in scope than Void Ledger.
 
 ---
 
-## What I'd Improve Next
+## What I’d Improve Next
 
 If I kept expanding this project, the next things I would look at are:
 
-- adding logging around cache hits, misses, and upstream failures
-- handling upstream rate limits more explicitly
-- adding deployment/runtime setup if I wanted to host it publicly
+- adding rate-limit and retry handling around the upstream API
+- adding logging or tracing around cache hits and misses
+- expanding integration test coverage around the HTTP layer
