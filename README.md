@@ -4,7 +4,7 @@ Dungeon Master Compendium is an ASP.NET Core API that wraps the Open5e API and e
 
 I built this project to practice working with an external API and Redis caching without turning it into a much bigger app.
 
-The goal was to keep the scope focused: fetch compendium data from Open5e, validate requests, normalize the responses, and cache repeated lookups in Redis.
+The goal was to keep the scope focused: fetch compendium data from the Open5e API, validate requests, normalize the responses, and cache repeated lookups in Redis.
 
 Open5e is an open-source 5e rules/content resource that provides API access to monsters, spells, items, and other SRD/OGL data, and this project wraps a small part of that API behind its own contracts and caching layer.
 
